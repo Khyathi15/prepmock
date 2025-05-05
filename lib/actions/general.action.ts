@@ -10,10 +10,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
 
   try {
     const formattedTranscript = transcript
-      .map(
-        (sentence: { role: string; content: string }) =>
-          `- ${sentence.role}: ${sentence.content}\n`
-      )
+      .map((sentence) => `- ${sentence.role}: ${sentence.content}\n`)
       .join('');
 
     const { object } = await generateObject({
@@ -26,20 +23,20 @@ export async function createFeedback(params: CreateFeedbackParams) {
         Transcript:
         ${formattedTranscript}
 
-        Please score the candidate from 0 to 100 in the following areas. Do not add categories other than the ones provided:
-        - **Communication Skills**: Clarity, articulation, structured responses.
-        - **Technical Knowledge**: Understanding of key concepts for the role.
-        - **Problem-Solving**: Ability to analyze problems and propose solutions.
-        - **Cultural & Role Fit**: Alignment with company values and job role.
-        - **Confidence & Clarity**: Confidence in responses, engagement, and clarity.
-        `,
+        Please score the candidate from 0 to 100 in the following areas:
+        - **Communication Skills**
+        - **Technical Knowledge**
+        - **Problem-Solving**
+        - **Cultural & Role Fit**
+        - **Confidence & Clarity**
+      `,
       system:
-        'You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories',
+        'You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories.',
     });
 
     const feedback = {
-      interviewId: interviewId,
-      userId: userId,
+      interviewId,
+      userId,
       totalScore: object.totalScore,
       categoryScores: object.categoryScores,
       strengths: object.strengths,
@@ -48,13 +45,9 @@ export async function createFeedback(params: CreateFeedbackParams) {
       createdAt: new Date().toISOString(),
     };
 
-    let feedbackRef;
-
-    if (feedbackId) {
-      feedbackRef = db.collection('feedback').doc(feedbackId);
-    } else {
-      feedbackRef = db.collection('feedback').doc();
-    }
+    const feedbackRef = feedbackId
+      ? db.collection('feedback').doc(feedbackId)
+      : db.collection('feedback').doc();
 
     await feedbackRef.set(feedback);
 
@@ -67,19 +60,17 @@ export async function createFeedback(params: CreateFeedbackParams) {
 
 export async function getInterviewById(id: string): Promise<Interview | null> {
   const interview = await db.collection('interviews').doc(id).get();
-  // console.log('inter2', interview);
-  return interview.data() as Interview | null;
+  return interview.exists ? (interview.data() as Interview) : null;
 }
 
 export async function getFeedbackByInterviewId(
   params: GetFeedbackByInterviewIdParams
 ): Promise<Feedback | null> {
-  const { interviewId, userId } = params;
+  const { interviewId } = params;
 
   const feedback = await db
     .collection('feedback')
     .where('interviewId', '==', interviewId)
-    // .where('userId', '==', userId)
     .limit(1)
     .get();
 
@@ -98,7 +89,7 @@ export async function getFeedbackByInterviewId(
 
 export async function getLatestInterviews(
   params: GetLatestInterviewsParams
-): Promise<Interview[] | null> {
+): Promise<Interview[]> {
   const { userId, limit = 20 } = params;
 
   const interviews = await db
@@ -115,16 +106,14 @@ export async function getLatestInterviews(
   })) as Interview[];
 }
 
-export async function getInterveiwsByUserId(
+export async function getInterviewsByUserId(
   userId: string
-): Promise<Interview[] | null> {
+): Promise<Interview[]> {
   const interviews = await db
     .collection('interviews')
     .where('userId', '==', userId)
     .orderBy('createdAt', 'desc')
     .get();
-
-  // console.log('interr', interviews);
 
   return interviews.docs.map((doc) => ({
     id: doc.id,
